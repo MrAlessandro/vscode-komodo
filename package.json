@@ -1,0 +1,992 @@
+{
+  "name": "vscode-komodo",
+  "displayName": "Komodo",
+  "description": "Manage Komodo servers, stacks and containers from the VS Code sidebar: deploy, pull, start, stop, restart, logs, terminals and live stats.",
+  "version": "0.2.1",
+  "publisher": "mralessandro",
+  "private": true,
+  "license": "UNLICENSED",
+  "icon": "resources/icon.png",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "komodo",
+    "docker",
+    "compose",
+    "stacks",
+    "containers",
+    "devops",
+    "terminal",
+    "exec"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "komodo",
+          "title": "Komodo",
+          "icon": "resources/komodo.svg"
+        }
+      ]
+    },
+    "views": {
+      "komodo": [
+        {
+          "id": "komodo.servers",
+          "name": "Servers",
+          "contextualTitle": "Komodo",
+          "icon": "resources/komodo.svg"
+        },
+        {
+          "id": "komodo.stacks",
+          "name": "Stacks",
+          "contextualTitle": "Komodo",
+          "icon": "resources/komodo.svg"
+        },
+        {
+          "id": "komodo.activity",
+          "name": "Activity",
+          "contextualTitle": "Komodo",
+          "icon": "resources/komodo.svg",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "komodo.servers",
+        "contents": "Connect to a Komodo Core instance to manage servers, stacks and containers.\n[Configure Connection](command:komodo.configure)\nCredentials are kept in VS Code Secret Storage (OS keychain), never in settings files.",
+        "when": "komodo.initialized && !komodo.configured && !komodo.envCredentialsAvailable"
+      },
+      {
+        "view": "komodo.servers",
+        "contents": "Komodo API credentials were found in the environment (KOMODO_KEY / KOMODO_SECRET).\n[Import from Environment](command:komodo.importFromEnvironment)\n[Configure Manually](command:komodo.configure)\nImported credentials are moved into VS Code Secret Storage (OS keychain).",
+        "when": "komodo.initialized && !komodo.configured && komodo.envCredentialsAvailable"
+      },
+      {
+        "view": "komodo.stacks",
+        "contents": "No Komodo connection configured.\n[Configure Connection](command:komodo.configure)",
+        "when": "komodo.initialized && !komodo.configured"
+      },
+      {
+        "view": "komodo.activity",
+        "contents": "Recent Komodo updates (deploys, restarts, procedures…) will appear here.",
+        "when": "komodo.initialized && !komodo.configured"
+      }
+    ],
+    "commands": [
+      {
+        "command": "komodo.configure",
+        "title": "Configure Connection…",
+        "category": "Komodo",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "komodo.importFromEnvironment",
+        "title": "Import Credentials from Environment",
+        "category": "Komodo"
+      },
+      {
+        "command": "komodo.signOut",
+        "title": "Remove Stored Credentials",
+        "category": "Komodo"
+      },
+      {
+        "command": "komodo.refresh",
+        "title": "Refresh",
+        "category": "Komodo",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "komodo.filter",
+        "title": "Filter…",
+        "category": "Komodo",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "komodo.clearFilter",
+        "title": "Clear Filter",
+        "category": "Komodo",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "komodo.showOutput",
+        "title": "Show Output Log",
+        "category": "Komodo"
+      },
+      {
+        "command": "komodo.openDashboard",
+        "title": "Open Komodo in Browser",
+        "category": "Komodo",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "komodo.openInBrowser",
+        "title": "Open in Komodo",
+        "category": "Komodo",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "komodo.copyName",
+        "title": "Copy Name",
+        "category": "Komodo"
+      },
+      {
+        "command": "komodo.server.showStats",
+        "title": "Show Stats",
+        "category": "Komodo Server",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "komodo.server.terminal",
+        "title": "Open Terminal",
+        "category": "Komodo Server",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "komodo.server.pullStacks",
+        "title": "Pull Images (All Stacks)",
+        "category": "Komodo Server",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "komodo.server.startAll",
+        "title": "Start All Containers",
+        "category": "Komodo Server",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "komodo.server.restartAll",
+        "title": "Restart All Containers",
+        "category": "Komodo Server",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "komodo.server.stopAll",
+        "title": "Stop All Containers",
+        "category": "Komodo Server",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "komodo.server.pauseAll",
+        "title": "Pause All Containers",
+        "category": "Komodo Server",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "komodo.server.unpauseAll",
+        "title": "Unpause All Containers",
+        "category": "Komodo Server",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "komodo.server.prune",
+        "title": "Prune Docker Resources…",
+        "category": "Komodo Server",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "komodo.stack.deploy",
+        "title": "Deploy",
+        "category": "Komodo Stack",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "komodo.stack.deployIfChanged",
+        "title": "Deploy If Changed",
+        "category": "Komodo Stack",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "komodo.stack.pull",
+        "title": "Pull Images",
+        "category": "Komodo Stack",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "komodo.stack.start",
+        "title": "Start",
+        "category": "Komodo Stack",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "komodo.stack.restart",
+        "title": "Restart",
+        "category": "Komodo Stack",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "komodo.stack.stop",
+        "title": "Stop",
+        "category": "Komodo Stack",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "komodo.stack.pause",
+        "title": "Pause",
+        "category": "Komodo Stack",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "komodo.stack.unpause",
+        "title": "Unpause",
+        "category": "Komodo Stack",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "komodo.stack.destroy",
+        "title": "Destroy (Compose Down)",
+        "category": "Komodo Stack",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "komodo.stack.logs",
+        "title": "Show Logs",
+        "category": "Komodo Stack",
+        "icon": "$(output)"
+      },
+      {
+        "command": "komodo.stack.compose",
+        "title": "Show Compose File",
+        "category": "Komodo Stack",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "komodo.service.deploy",
+        "title": "Deploy Service",
+        "category": "Komodo Service",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "komodo.service.pull",
+        "title": "Pull Image",
+        "category": "Komodo Service",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "komodo.service.start",
+        "title": "Start",
+        "category": "Komodo Service",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "komodo.service.restart",
+        "title": "Restart",
+        "category": "Komodo Service",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "komodo.service.stop",
+        "title": "Stop",
+        "category": "Komodo Service",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "komodo.service.pause",
+        "title": "Pause",
+        "category": "Komodo Service",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "komodo.service.unpause",
+        "title": "Unpause",
+        "category": "Komodo Service",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "komodo.service.destroy",
+        "title": "Destroy Container",
+        "category": "Komodo Service",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "komodo.service.logs",
+        "title": "Show Logs",
+        "category": "Komodo Service",
+        "icon": "$(output)"
+      },
+      {
+        "command": "komodo.service.inspect",
+        "title": "Inspect Container",
+        "category": "Komodo Service",
+        "icon": "$(json)"
+      },
+      {
+        "command": "komodo.service.terminal",
+        "title": "Open Terminal",
+        "category": "Komodo Service",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "komodo.container.start",
+        "title": "Start",
+        "category": "Komodo Container",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "komodo.container.restart",
+        "title": "Restart",
+        "category": "Komodo Container",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "komodo.container.stop",
+        "title": "Stop",
+        "category": "Komodo Container",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "komodo.container.pause",
+        "title": "Pause",
+        "category": "Komodo Container",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "komodo.container.unpause",
+        "title": "Unpause",
+        "category": "Komodo Container",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "komodo.container.destroy",
+        "title": "Destroy",
+        "category": "Komodo Container",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "komodo.container.logs",
+        "title": "Show Logs",
+        "category": "Komodo Container",
+        "icon": "$(output)"
+      },
+      {
+        "command": "komodo.container.inspect",
+        "title": "Inspect",
+        "category": "Komodo Container",
+        "icon": "$(json)"
+      },
+      {
+        "command": "komodo.container.terminal",
+        "title": "Open Terminal",
+        "category": "Komodo Container",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "komodo.terminal.openWithShell",
+        "title": "Open Terminal With Shell…",
+        "category": "Komodo",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "komodo.update.open",
+        "title": "Show Update Log",
+        "category": "Komodo",
+        "icon": "$(output)"
+      },
+      {
+        "command": "komodo.logs.refresh",
+        "title": "Refresh",
+        "category": "Komodo Logs",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "komodo.logs.follow",
+        "title": "Follow Logs",
+        "category": "Komodo Logs",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "komodo.logs.unfollow",
+        "title": "Stop Following Logs",
+        "category": "Komodo Logs",
+        "icon": "$(eye-closed)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "komodo.refresh",
+          "when": "view =~ /^komodo\\./ && komodo.configured",
+          "group": "navigation@1"
+        },
+        {
+          "command": "komodo.filter",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && komodo.configured && !komodo.filterActive",
+          "group": "navigation@2"
+        },
+        {
+          "command": "komodo.clearFilter",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && komodo.filterActive",
+          "group": "navigation@2"
+        },
+        {
+          "command": "komodo.openDashboard",
+          "when": "view =~ /^komodo\\./ && komodo.configured",
+          "group": "1_komodo@1"
+        },
+        {
+          "command": "komodo.configure",
+          "when": "view =~ /^komodo\\./",
+          "group": "2_connection@1"
+        },
+        {
+          "command": "komodo.importFromEnvironment",
+          "when": "view =~ /^komodo\\./ && komodo.envCredentialsAvailable",
+          "group": "2_connection@2"
+        },
+        {
+          "command": "komodo.signOut",
+          "when": "view =~ /^komodo\\./ && komodo.configured",
+          "group": "2_connection@3"
+        },
+        {
+          "command": "komodo.showOutput",
+          "when": "view =~ /^komodo\\./",
+          "group": "3_debug@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "komodo.server.showStats",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "komodo.server.showStats",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "1_inspect@1"
+        },
+        {
+          "command": "komodo.server.terminal",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b.*\\bterminal\\b/",
+          "group": "inline@2"
+        },
+        {
+          "command": "komodo.server.terminal",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b.*\\bterminal\\b/",
+          "group": "1_inspect@2"
+        },
+        {
+          "command": "komodo.terminal.openWithShell",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b.*\\bterminal\\b/",
+          "group": "1_inspect@3"
+        },
+        {
+          "command": "komodo.server.pullStacks",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b.*\\bhas-stacks\\b/",
+          "group": "2_stacks@1"
+        },
+        {
+          "command": "komodo.server.startAll",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "3_containers@1"
+        },
+        {
+          "command": "komodo.server.restartAll",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "3_containers@2"
+        },
+        {
+          "command": "komodo.server.stopAll",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "3_containers@3"
+        },
+        {
+          "command": "komodo.server.pauseAll",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "3_containers@4"
+        },
+        {
+          "command": "komodo.server.unpauseAll",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "3_containers@5"
+        },
+        {
+          "command": "komodo.server.prune",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server state-ok\\b/",
+          "group": "4_prune@1"
+        },
+        {
+          "command": "komodo.openInBrowser",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server /",
+          "group": "8_open@1"
+        },
+        {
+          "command": "komodo.copyName",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^server /",
+          "group": "8_open@2"
+        },
+        {
+          "command": "komodo.stack.deploy",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "inline@1"
+        },
+        {
+          "command": "komodo.stack.start",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(stopped|created|dead|unhealthy)\\b/",
+          "group": "inline@2"
+        },
+        {
+          "command": "komodo.stack.stop",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(running|restarting|paused|deploying)\\b/",
+          "group": "inline@2"
+        },
+        {
+          "command": "komodo.stack.restart",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(?!down\\b|unknown\\b)/",
+          "group": "inline@3"
+        },
+        {
+          "command": "komodo.stack.logs",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(?!down\\b|unknown\\b)/",
+          "group": "inline@4"
+        },
+        {
+          "command": "komodo.stack.deploy",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "1_deploy@1"
+        },
+        {
+          "command": "komodo.stack.deployIfChanged",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "1_deploy@2"
+        },
+        {
+          "command": "komodo.stack.pull",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "1_deploy@3"
+        },
+        {
+          "command": "komodo.stack.start",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(stopped|created|dead|unhealthy)\\b/",
+          "group": "2_lifecycle@1"
+        },
+        {
+          "command": "komodo.stack.restart",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(?!down\\b|unknown\\b)/",
+          "group": "2_lifecycle@2"
+        },
+        {
+          "command": "komodo.stack.stop",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(running|unhealthy|restarting|paused|deploying)\\b/",
+          "group": "2_lifecycle@3"
+        },
+        {
+          "command": "komodo.stack.pause",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(running|unhealthy)\\b/",
+          "group": "2_lifecycle@4"
+        },
+        {
+          "command": "komodo.stack.unpause",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(paused|unhealthy)\\b/",
+          "group": "2_lifecycle@5"
+        },
+        {
+          "command": "komodo.stack.destroy",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack state-(?!down\\b)/",
+          "group": "3_destroy@1"
+        },
+        {
+          "command": "komodo.stack.logs",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "4_inspect@1"
+        },
+        {
+          "command": "komodo.stack.compose",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "4_inspect@2"
+        },
+        {
+          "command": "komodo.openInBrowser",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "8_open@1"
+        },
+        {
+          "command": "komodo.copyName",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^stack /",
+          "group": "8_open@2"
+        },
+        {
+          "command": "komodo.service.start",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(exited|created|dead)\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "komodo.service.stop",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(running|restarting|paused|healthy|unhealthy)\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "komodo.service.restart",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(?!unknown\\b|down\\b)/",
+          "group": "inline@2"
+        },
+        {
+          "command": "komodo.service.logs",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(?!unknown\\b|down\\b)/",
+          "group": "inline@3"
+        },
+        {
+          "command": "komodo.service.deploy",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service /",
+          "group": "1_deploy@1"
+        },
+        {
+          "command": "komodo.service.pull",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service /",
+          "group": "1_deploy@2"
+        },
+        {
+          "command": "komodo.service.start",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(exited|created|dead)\\b/",
+          "group": "2_lifecycle@1"
+        },
+        {
+          "command": "komodo.service.restart",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(?!unknown\\b|down\\b)/",
+          "group": "2_lifecycle@2"
+        },
+        {
+          "command": "komodo.service.stop",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(running|restarting|paused|healthy|unhealthy)\\b/",
+          "group": "2_lifecycle@3"
+        },
+        {
+          "command": "komodo.service.pause",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-running\\b/",
+          "group": "2_lifecycle@4"
+        },
+        {
+          "command": "komodo.service.unpause",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-paused\\b/",
+          "group": "2_lifecycle@5"
+        },
+        {
+          "command": "komodo.service.destroy",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(?!unknown\\b|down\\b)/",
+          "group": "3_destroy@1"
+        },
+        {
+          "command": "komodo.service.logs",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(?!unknown\\b|down\\b)/",
+          "group": "4_inspect@1"
+        },
+        {
+          "command": "komodo.service.inspect",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-(?!unknown\\b|down\\b)/",
+          "group": "4_inspect@2"
+        },
+        {
+          "command": "komodo.service.terminal",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-running\\b.*\\bexec\\b/",
+          "group": "inline@4"
+        },
+        {
+          "command": "komodo.service.terminal",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-running\\b.*\\bexec\\b/",
+          "group": "4_inspect@3"
+        },
+        {
+          "command": "komodo.terminal.openWithShell",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service state-running\\b.*\\bexec\\b/",
+          "group": "4_inspect@4"
+        },
+        {
+          "command": "komodo.openInBrowser",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service /",
+          "group": "8_open@1"
+        },
+        {
+          "command": "komodo.copyName",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^service /",
+          "group": "8_open@2"
+        },
+        {
+          "command": "komodo.container.start",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-(exited|created|dead)\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "komodo.container.stop",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-(running|restarting|paused)\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "komodo.container.restart",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "inline@2"
+        },
+        {
+          "command": "komodo.container.logs",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "inline@3"
+        },
+        {
+          "command": "komodo.container.start",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-(exited|created|dead)\\b/",
+          "group": "2_lifecycle@1"
+        },
+        {
+          "command": "komodo.container.restart",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "2_lifecycle@2"
+        },
+        {
+          "command": "komodo.container.stop",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-(running|restarting|paused)\\b/",
+          "group": "2_lifecycle@3"
+        },
+        {
+          "command": "komodo.container.pause",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-running\\b/",
+          "group": "2_lifecycle@4"
+        },
+        {
+          "command": "komodo.container.unpause",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-paused\\b/",
+          "group": "2_lifecycle@5"
+        },
+        {
+          "command": "komodo.container.destroy",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "3_destroy@1"
+        },
+        {
+          "command": "komodo.container.logs",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "4_inspect@1"
+        },
+        {
+          "command": "komodo.container.inspect",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "4_inspect@2"
+        },
+        {
+          "command": "komodo.container.terminal",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-running\\b.*\\bexec\\b/",
+          "group": "inline@4"
+        },
+        {
+          "command": "komodo.container.terminal",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-running\\b.*\\bexec\\b/",
+          "group": "4_inspect@3"
+        },
+        {
+          "command": "komodo.terminal.openWithShell",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container state-running\\b.*\\bexec\\b/",
+          "group": "4_inspect@4"
+        },
+        {
+          "command": "komodo.openInBrowser",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "8_open@1"
+        },
+        {
+          "command": "komodo.copyName",
+          "when": "view =~ /^komodo\\.(servers|stacks)$/ && viewItem =~ /^container /",
+          "group": "8_open@2"
+        },
+        {
+          "command": "komodo.update.open",
+          "when": "view == komodo.activity && viewItem =~ /^update\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "komodo.openInBrowser",
+          "when": "view == komodo.activity && viewItem =~ /^update\\b/",
+          "group": "8_open@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "komodo.logs.follow",
+          "when": "resourceScheme == komodo && resourceExtname == .log && komodo.logIsLive && !komodo.logFollowing",
+          "group": "navigation@1"
+        },
+        {
+          "command": "komodo.logs.unfollow",
+          "when": "resourceScheme == komodo && resourceExtname == .log && komodo.logIsLive && komodo.logFollowing",
+          "group": "navigation@1"
+        },
+        {
+          "command": "komodo.logs.refresh",
+          "when": "resourceScheme == komodo",
+          "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "komodo.clearFilter",
+          "when": "komodo.filterActive"
+        },
+        {
+          "command": "komodo.importFromEnvironment",
+          "when": "komodo.envCredentialsAvailable"
+        },
+        {
+          "command": "komodo.signOut",
+          "when": "komodo.configured"
+        },
+        {
+          "command": "komodo.openInBrowser",
+          "when": "false"
+        },
+        {
+          "command": "komodo.copyName",
+          "when": "false"
+        },
+        {
+          "command": "komodo.update.open",
+          "when": "false"
+        },
+        {
+          "command": "komodo.logs.refresh",
+          "when": "resourceScheme == komodo"
+        },
+        {
+          "command": "komodo.logs.follow",
+          "when": "resourceScheme == komodo && komodo.logIsLive && !komodo.logFollowing"
+        },
+        {
+          "command": "komodo.logs.unfollow",
+          "when": "resourceScheme == komodo && komodo.logIsLive && komodo.logFollowing"
+        },
+        {
+          "command": "komodo.terminal.openWithShell",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Komodo",
+      "properties": {
+        "komodo.refreshInterval": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "markdownDescription": "Seconds between automatic refreshes while a Komodo view is visible. `0` disables polling (manual refresh and real-time updates still work). When the views are hidden the data is refreshed every 5 minutes for the status bar."
+        },
+        "komodo.realtimeUpdates": {
+          "type": "boolean",
+          "default": true,
+          "description": "Subscribe to the Komodo Core update stream (websocket) to refresh the views as soon as deploys, restarts and other operations happen."
+        },
+        "komodo.confirmActions": {
+          "type": "string",
+          "enum": [
+            "always",
+            "disruptive",
+            "dangerous",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Ask for confirmation before every action.",
+            "Confirm actions that interrupt running containers (deploy, restart, stop, pause, destroy, prune, *All Containers).",
+            "Confirm only destructive actions (destroy, prune, stop/restart all containers).",
+            "Never ask for confirmation."
+          ],
+          "default": "disruptive",
+          "scope": "application",
+          "description": "Which Komodo actions require a confirmation dialog."
+        },
+        "komodo.notifications": {
+          "type": "string",
+          "enum": [
+            "all",
+            "errors"
+          ],
+          "enumDescriptions": [
+            "Show a notification when an action completes or fails.",
+            "Only show a notification when an action fails."
+          ],
+          "default": "all",
+          "description": "Which notifications to show when an action completes."
+        },
+        "komodo.servers.showStats": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show CPU / memory / disk usage next to each server."
+        },
+        "komodo.servers.showContainers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a 'Containers' folder under each server listing every Docker container on it (loaded on expand)."
+        },
+        "komodo.services.showStats": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show CPU and memory usage next to each stack service / container."
+        },
+        "komodo.logs.tail": {
+          "type": "number",
+          "default": 500,
+          "minimum": 10,
+          "maximum": 5000,
+          "description": "Number of log lines to fetch when opening container / service logs (max 5000)."
+        },
+        "komodo.logs.timestamps": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include Docker timestamps in container / service logs."
+        },
+        "komodo.logs.followInterval": {
+          "type": "number",
+          "default": 5,
+          "minimum": 2,
+          "description": "Seconds between refreshes of a log that is being followed."
+        },
+        "komodo.statusBar.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a Komodo health summary in the status bar."
+        },
+        "komodo.terminal.serverShell": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "markdownDescription": "Command started by **Open Terminal** on a server (e.g. `bash`). Empty = the default shell configured on Komodo Periphery. Use **Open Terminal With Shell…** to choose per terminal."
+        },
+        "komodo.terminal.containerShell": {
+          "type": "string",
+          "default": "sh",
+          "scope": "application",
+          "markdownDescription": "Command started by **Open Terminal** inside a container / stack service (`docker exec`). `sh` exists in almost every image; use `bash` if your images have it."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package --no-dependencies --skip-license --allow-missing-repository",
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "e2e:up": "docker compose -f test/e2e/docker-compose.yaml up -d",
+    "e2e:down": "docker compose -f test/e2e/docker-compose.yaml down -v",
+    "test:e2e": "esbuild test/e2e/actions.e2e.ts --bundle --platform=node --format=cjs --alias:vscode=./test/stubs/vscode.ts --outfile=out/e2e.cjs --log-level=warning && node out/e2e.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^4.1.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

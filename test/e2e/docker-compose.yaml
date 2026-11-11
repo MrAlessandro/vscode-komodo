@@ -1,0 +1,67 @@
+# Disposable Komodo environment for the end-to-end action tests (npm run test:e2e).
+#
+# Periphery manages an isolated Docker-in-Docker daemon instead of the host Docker,
+# so server-wide actions (Stop All Containers, Prune …) never touch your own containers.
+#
+#   npm run e2e:up     # start (Core on http://localhost:19120)
+#   npm run test:e2e   # run every extension action against it
+#   npm run e2e:down   # remove everything (containers + volumes)
+
+name: komodo-e2e
+
+services:
+  mongo:
+    image: mongo:8
+    command: --quiet --wiredTigerCacheSizeGB 0.25
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+
+  core:
+    image: ghcr.io/moghtech/komodo-core:2.3.3
+    init: true
+    depends_on:
+      - mongo
+    ports:
+      - 127.0.0.1:19120:9120
+    env_file: ./compose.env
+    environment:
+      KOMODO_DATABASE_ADDRESS: mongo:27017
+    volumes:
+      - keys:/config/keys
+
+  # The "server" managed by Komodo: an isolated Docker daemon.
+  dind:
+    image: docker:dind
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+      # Legacy iptables: avoids nf_tables auto-detection issues on host kernels (verified on Docker Desktop for Mac).
+      DOCKER_IPTABLES_LEGACY: "1"
+    volumes:
+      - dind-run:/var/run
+      - dind-data:/var/lib/docker
+
+  periphery:
+    image: ghcr.io/moghtech/komodo-periphery:2.3.3
+    init: true
+    depends_on:
+      - core
+      - dind
+    env_file: ./compose.env
+    volumes:
+      - keys:/config/keys
+      # docker.sock of the dind daemon (not the host one)
+      - dind-run:/var/run
+      - periphery-root:/etc/komodo
+
+volumes:
+  mongo-data:
+  mongo-config:
+  keys:
+  dind-run:
+  dind-data:
+  periphery-root:
