@@ -85,6 +85,8 @@ export function statsHtml(cspSource: string, nonce: string): string {
   .dot.running { background: var(--ok); } .dot.unhealthy, .dot.restarting, .dot.paused { background: var(--warn); }
   .dot.dead, .dot.failed { background: var(--crit); } .dot.created { background: var(--info); }
   .status { color: var(--muted); white-space: nowrap; }
+  td.actions-cell { white-space: nowrap; text-align: right; }
+  button.mini { padding: 1px 7px; font-size: .88em; margin-left: 4px; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -97,6 +99,7 @@ export function statsHtml(cspSource: string, nonce: string): string {
     <div class="actions">
       <span class="updated" id="updated"></span>
       <button data-act="refresh" title="Refresh now">Refresh</button>
+      <button data-act="terminal" id="server-terminal" class="hidden" title="Open a shell on this server in a VS Code terminal">Terminal</button>
       <button class="primary" data-act="open" title="Open this server in the Komodo web UI">Open in Komodo</button>
     </div>
   </header>
@@ -160,6 +163,7 @@ export function statsHtml(cspSource: string, nonce: string): string {
       s.version && 'Periphery v' + s.version, s.region, s.tags && s.tags.length ? 'tags: ' + s.tags.join(', ') : ''].filter(Boolean);
     $('#meta').innerHTML = meta.map(esc).join(' · ');
     $('#updated').textContent = 'Updated ' + new Date(data.updatedAt).toLocaleTimeString() + ' · auto 15s';
+    $('#server-terminal').classList.toggle('hidden', !s.terminals);
     const errors = $('#errors');
     errors.classList.toggle('hidden', !data.errors.length);
     errors.innerHTML = data.errors.map((e) => '⚠ ' + esc(e)).join('<br>');
@@ -266,6 +270,7 @@ export function statsHtml(cspSource: string, nonce: string): string {
     { key: 'net', label: 'Net I/O', num: true },
     { key: 'block', label: 'Block I/O', num: true },
     { key: 'pids', label: 'PIDs', num: true },
+    { key: 'actions', label: '', nosort: true },
   ];
 
   function dotClass(c) {
@@ -292,15 +297,19 @@ export function statsHtml(cspSource: string, nonce: string): string {
     if (!list.length) { $('#containers').innerHTML = '<div class="empty">No containers on this server</div>'; return; }
     const { key, desc } = state.sort;
     list.sort((a, b) => { const va = sortValue(a, key), vb = sortValue(b, key); return (va < vb ? -1 : va > vb ? 1 : 0) * (desc ? -1 : 1); });
-    let html = '<table><thead><tr>' + COLUMNS.map((c) =>
+    let html = '<table><thead><tr>' + COLUMNS.map((c) => c.nosort ? '<th></th>' :
       '<th data-act="sort" data-key="' + c.key + '" class="' + (c.num ? 'num ' : '') + (c.key === key ? 'sorted' : '') + '" data-dir="' + (desc ? '↓' : '↑') + '">' + c.label + '</th>').join('') + '</tr></thead><tbody>';
+    const canExec = !!data.server.containerTerminals;
     for (const c of list) {
       html += '<tr><td><span class="dot ' + esc(dotClass(c)) + '"></span><a class="link" data-act="logs" data-name="' + esc(c.name) + '" title="Show logs">' + esc(c.name) + '</a>' +
         '<div class="sub">' + esc(c.owner ? 'stack ' + c.owner : (c.image || '')) + '</div></td>' +
         '<td class="status">' + esc(c.status || c.state) + '</td>' +
         '<td class="num">' + esc(c.cpuText) + '</td>' +
         '<td class="num">' + esc(c.memText) + (c.memPerc != null ? '<div class="sub">' + esc(c.memPerc.toFixed(1)) + '%</div>' : '') + '</td>' +
-        '<td class="num">' + esc(c.net) + '</td><td class="num">' + esc(c.block) + '</td><td class="num">' + esc(c.pids) + '</td></tr>';
+        '<td class="num">' + esc(c.net) + '</td><td class="num">' + esc(c.block) + '</td><td class="num">' + esc(c.pids) + '</td>' +
+        '<td class="actions-cell"><button class="mini" data-act="logs" data-name="' + esc(c.name) + '" title="Show logs">Logs</button>' +
+        (canExec && c.state === 'running' ? '<button class="mini" data-act="terminal" data-name="' + esc(c.name) + '" title="Open a shell in this container (docker exec)">Terminal</button>' : '') +
+        '</td></tr>';
     }
     $('#containers').innerHTML = html + '</tbody></table>';
   }
@@ -337,6 +346,8 @@ export function statsHtml(cspSource: string, nonce: string): string {
       vscode.postMessage({ type: 'open' });
     } else if (act === 'logs') {
       vscode.postMessage({ type: 'logs', container: el.dataset.name });
+    } else if (act === 'terminal') {
+      vscode.postMessage({ type: 'terminal', container: el.dataset.name || undefined });
     } else if (act === 'sort') {
       const key = el.dataset.key;
       state.sort = { key, desc: state.sort.key === key ? !state.sort.desc : key !== 'name' };

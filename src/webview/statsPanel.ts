@@ -9,7 +9,10 @@ import type {
 } from '../api/types';
 import type { ConnectionManager } from '../connection';
 import type { KomodoDocumentProvider } from '../documents/provider';
+import { getSettings } from '../config';
 import type { KomodoStore } from '../model/store';
+import type { TerminalManager } from '../terminal/komodoTerminal';
+import { containerTerminalSpec, serverTerminalSpec } from '../terminal/specs';
 import { statsHtml } from './statsHtml';
 
 export type RangeKey = '1h' | '6h' | '24h' | '7d';
@@ -48,6 +51,10 @@ export interface StatsPayload {
     version?: string;
     thresholds?: ServerAlertingThresholds;
     tags: string[];
+    /** Server shell allowed by Periphery. */
+    terminals: boolean;
+    /** `docker exec` terminals allowed by Periphery. */
+    containerTerminals: boolean;
   };
   info?: SystemInformation;
   stats?: unknown;
@@ -62,6 +69,7 @@ type InboundMessage =
   | { type: 'refresh' }
   | { type: 'range'; range: RangeKey }
   | { type: 'logs'; container: string }
+  | { type: 'terminal'; container?: string }
   | { type: 'open' };
 
 /** One webview panel per server, showing live system stats, history charts and container stats. */
@@ -73,6 +81,7 @@ export class StatsPanelManager implements vscode.Disposable {
     private readonly connection: ConnectionManager,
     private readonly store: KomodoStore,
     private readonly docs: KomodoDocumentProvider,
+    private readonly terminals: TerminalManager,
   ) {}
 
   show(serverId: string): void {
@@ -92,7 +101,9 @@ export class StatsPanelManager implements vscode.Disposable {
       light: vscode.Uri.joinPath(this.context.extensionUri, 'resources', 'komodo-light.svg'),
       dark: vscode.Uri.joinPath(this.context.extensionUri, 'resources', 'komodo-dark.svg'),
     };
-    const instance = new StatsPanel(panel, serverId, this.connection, this.store, this.docs, () => this.panels.delete(serverId));
+    const instance = new StatsPanel(panel, serverId, this.connection, this.store, this.docs, this.terminals, () =>
+      this.panels.delete(serverId),
+    );
     this.panels.set(serverId, instance);
   }
 
@@ -119,6 +130,7 @@ class StatsPanel {
     private readonly connection: ConnectionManager,
     private readonly store: KomodoStore,
     private readonly docs: KomodoDocumentProvider,
+    private readonly terminals: TerminalManager,
     private readonly onDispose: () => void,
   ) {
     const nonce = createNonce();
@@ -160,6 +172,20 @@ class StatsPanel {
         if (server && typeof msg.container === 'string') {
           void this.docs.open({ kind: 'containerLog', serverId: server.id, serverName: server.name, container: msg.container });
         }
+        break;
+      }
+      case 'terminal': {
+        const server = this.store.server(this.serverId);
+        if (!server) {
+          break;
+        }
+        const ref = { serverId: server.id, serverName: server.name };
+        const settings = getSettings();
+        this.terminals.openTerminal(
+          typeof msg.container === 'string' && msg.container
+            ? containerTerminalSpec({ ...ref, container: msg.container }, settings.terminalContainerShell)
+            : serverTerminalSpec(ref, settings.terminalServerShell),
+        );
         break;
       }
       case 'open':
@@ -216,6 +242,8 @@ class StatsPanel {
           version: server?.info.version,
           thresholds: server?.info.alerting_thresholds,
           tags: server ? this.store.tagNames(server.tags) : [],
+          terminals: server?.info.state === 'Ok' && !server.info.terminals_disabled,
+          containerTerminals: server?.info.state === 'Ok' && !server.info.container_terminals_disabled,
         },
         info: this.info,
         stats: value(stats, 'Stats'),

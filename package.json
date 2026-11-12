@@ -2,7 +2,7 @@
   "name": "vscode-komodo",
   "displayName": "Komodo",
   "description": "Manage Komodo servers, stacks and containers from the VS Code sidebar: deploy, pull, start, stop, restart, logs, terminals and live stats.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "mralessandro",
   "private": true,
   "license": "UNLICENSED",

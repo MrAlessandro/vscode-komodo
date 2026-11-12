@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- Stats panel: *Terminal* button for the server and for every running container (shown only where Komodo allows terminals), next to a *Logs* button.
+
 ## 0.2.1
 
 - Terminals: `docker exec` sessions now get the right size from the start (the size is sent again once the process is up; they used to start as 24×80).

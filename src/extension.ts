@@ -146,9 +146,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Komodo
   const store = new KomodoStore(connection, log);
   const docs = new KomodoDocumentProvider(connection, store, log);
   const runner = new ActionRunner(connection, store, docs, log);
-  const stats = new StatsPanelManager(context, connection, store, docs);
   const terminals = new TerminalManager(connection, log);
   terminalManager = terminals;
+  const stats = new StatsPanelManager(context, connection, store, docs, terminals);
 
   const serversProvider = new ServersProvider(store, connection);
   const stacksProvider = new StacksProvider(store, connection);

@@ -25,7 +25,7 @@ Every action shows a progress notification, waits for Komodo to finish, and offe
 
 **Terminals** — open an interactive shell on a server, or `docker exec` into a stack service or container, right in the VS Code terminal panel (inline `$(terminal)` button or right-click → *Open Terminal*). *Open Terminal With Shell…* lets you pick `bash`, `sh`, `zsh`, `ash` or any command (e.g. `psql -U postgres`). Each VS Code terminal gets its own Komodo session, deleted as soon as the terminal is closed or the shell exits, so no orphan shells are left on your servers. When a session ends, press <kbd>Enter</kbd> for a new one. The entries are hidden where Komodo disables terminals (Periphery `disable_terminals` / `disable_container_terminals`) and for containers that are not running.
 
-**Stats panel** — per server: CPU, memory, swap, disks, network, load average, history charts (1h / 6h / 24h / 7d) and a sortable table of container CPU / memory / network / block I/O (click a container to open its logs).
+**Stats panel** — per server: CPU, memory, swap, disks, network, load average, history charts (1h / 6h / 24h / 7d) and a sortable table of container CPU / memory / network / block I/O, with *Logs* and *Terminal* buttons for every container (plus a *Terminal* button for the server itself).
 
 **Logs** open as read-only editors (Log syntax highlighting). Use the eye button in the editor title to *follow* a log.
 
@@ -99,5 +99,5 @@ The script refuses to run against anything but `http://localhost`.
 
 ```bash
 npm run package
-code --install-extension vscode-komodo-0.2.1.vsix
+code --install-extension vscode-komodo-0.2.2.vsix
 ```
